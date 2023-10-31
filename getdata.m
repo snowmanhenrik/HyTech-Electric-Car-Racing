@@ -27,7 +27,8 @@ disp(fluxQuery);
 requestBody = struct('query', fluxQuery);
 
 % 3. Set HTTP Options and Headers
-headers = matlab.net.http.HeaderField('authorization', 'Token cBzX7hK34AHjfGCElheFna0jT39u5j_Ebi4vRYWDZP1E-LjAffa7hj85pavKbCp71_6nzpCBQxje-YeGRf4UfQ==', 'content-type', 'application/vnd.flux');
+headers = matlab.net.http.HeaderField('authorization', 'Token <token>', 'content-type', 'application/vnd.flux');
+% replace <token> with actual access token
 request = matlab.net.http.RequestMessage('POST', headers, jsonencode(requestBody));
 
 % 4. Send the Request using webread
