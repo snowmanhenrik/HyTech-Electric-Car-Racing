@@ -1,7 +1,8 @@
 function [] = bucketquery()
 
 base_url = 'http://3.134.2.166:8086';
-token = 'cBzX7hK34AHjfGCElheFna0jT39u5j_Ebi4vRYWDZP1E-LjAffa7hj85pavKbCp71_6nzpCBQxje-YeGRf4UfQ==';
+token = '<token>';
+%replace <token> with actual access token.
 
 endpoint = '/api/v2/buckets';
 
