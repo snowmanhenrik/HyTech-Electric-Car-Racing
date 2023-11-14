@@ -1,56 +1,97 @@
 function [] = getdata()
+
 bucketquery()
-
-x = []; % initializing containing timestamps array.
-y = []; % initializing sensor values array.
-
-getData()
-
-
-end
-
-function data = getData()
-
 prompt1 = "Please input the *name* of the bucket you want to query: ";
-
 bucketname = input(prompt1,'s');
 
-% 1. Define the Query and Parameters
-fluxQueryf = 'from(bucket: "';
-%fluxQueryb = '") |> range(start: -7d, stop: now()) |> aggregateWindow(every:(1d),fn:mean,createEmpty: false) |> yield(name: "mean")';
-fluxQueryb = '") |> range(start: -7d, stop: now()) |> filter(fn: (r) => r["_measurement"] == "detailed_temps") |> filter(fn: (r) => r["_field"] == "ic_00") |> filter(fn: (r) => r["id"] == "temp_1") |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false) |> yield(name: "mean")';
-fluxQuery = [fluxQueryf bucketname fluxQueryb];
+dataf = 'from(bucket: "';
+dataf2 = '") |> range(start: -';
+prompt2 = "Please input the time range of data you want to query, for example, 7d: ";
+timerange = input(prompt2,'s');
+datab = ')';
+data = [dataf bucketname dataf2 timerange datab];
 
-disp(fluxQuery);
+body = matlab.net.http.MessageBody(data);
+contentTypeField = matlab.net.http.field.ContentTypeField('application/vnd.flux'); 
+acceptField = matlab.net.http.field.AcceptField('application/csv');
+method = matlab.net.http.RequestMethod.POST;
+auth = matlab.net.http.field.GenericField('Authorization','Token <token>'); %replace "<token>" with actual token
+header = [auth acceptField contentTypeField]; 
+request = matlab.net.http.RequestMessage(method,header,body);
 
-% 2. Construct the Request Body
-requestBody = struct('query', fluxQuery);
+uri = matlab.net.URI('http://localhost:8086/api/v2/query?org=<orgID>'); 
+%replace "localhost" with actual ip address if needed
+%replace "<orgID>" with actual organization ID
+response = send(request,uri);
+structuredata = response.Body.Data;
 
-% 3. Set HTTP Options and Headers
-headers = matlab.net.http.HeaderField('authorization', 'Token <token>', 'content-type', 'application/vnd.flux');
-% replace <token> with actual access token
-request = matlab.net.http.RequestMessage('POST', headers, jsonencode(requestBody));
+for i = 1:width(structuredata)
+    % List of unique values re-initialized per looped index
+    columnName = structuredata.Properties.VariableNames{i};
+    columnData = structuredata.(columnName);
+        
+    if iscell(columnData) && iscell(columnData{1})
+        columnData = cellfun(@(c) c{1}, columnData, 'UniformOutput', false);
+    end
+    
+    uniqueColumnValues = unique(columnData);
+    disp(['Unique values for column "', columnName, '":']);
+    disp(uniqueColumnValues);
+    
+    % Ask the user to select a value to filter by, or skip by pressing enter.
+    prompt = sprintf("Please enter a value to filter the '%s' column, or press enter to skip: ", columnName);
+    userCondition = input(prompt,'s');
+    
+    % Apply the filter if the user entered a condition.
+    if ~isempty(userCondition)
+        if iscell(structuredata.(columnName)) 
+            %filter by string match
+            structuredata1 = structuredata(strcmp(structuredata.(columnName), userCondition), :);
 
-% 4. Send the Request using webread
-url = 'http://3.134.2.166:8086/api/v2/query?org=4a7a666528409094';
+        else %filter by logic match
+            structuredata1 = structuredata(structuredata.(columnName) == str2double(userCondition), :);
+        end
 
-try
-    response = request.send(url).Body.Data;
-    disp(response);
+        % If no rows remain after filtering
+        while isempty(structuredata1)
+            disp(['No matching data found for the filter: ', columnName, ' = ', userCondition]);
+            promptempty = "Please enter a different value to filter by: ";
+            userCondition = input(promptempty,"s");            
+            if iscell(structuredata.(columnName)) 
+                structuredata1 = structuredata(strcmp(structuredata.(columnName), userCondition), :);
+            else 
+                structuredata1 = structuredata(structuredata.(columnName) == str2double(userCondition), :);
+            end
+        end
 
-    % 5. Handle the Response (for now, just display it)
+        if ~isempty(structuredata1)
+            structuredata = structuredata1;
+        end
+    end
 
-catch exception
-    % 6. Error Handling
-    disp('Error encountered:');
-    disp(exception.message);
+
+
+structuredata.x_time = datetime(structuredata.x_time, 'InputFormat', 'yyyy-MM-dd''T''HH:mm:ss.SSSSSSSSS''Z''', 'TimeZone', 'UTC');
+
+timeDifferences = structuredata.x_time - min(structuredata.x_time);
+
+relativeSeconds = seconds(timeDifferences);
+
+structuredata.relative_time_seconds = relativeSeconds;
+
+timestamps = structuredata.relative_time_seconds;
+sensorvalues = structuredata.x_value;
+
+plot(timestamps, sensorvalues, '-s', 'MarkerSize', 10, ...
+    'MarkerEdgeColor', 'red', ...
+    'MarkerFaceColor', [1 .6 .6]);
+grid on;
+xlabel('relative time (seconds)');
+ylabel('sensor value (units)');
+ax = gca; 
+ax.YTick = [floor(min(sensorvalues)):10:ceil(max(sensorvalues))];
+
 
 end
-
-end
-
-
-
-
 
 
