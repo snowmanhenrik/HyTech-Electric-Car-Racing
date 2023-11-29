@@ -15,13 +15,13 @@ body = matlab.net.http.MessageBody(data);
 contentTypeField = matlab.net.http.field.ContentTypeField('application/vnd.flux'); 
 acceptField = matlab.net.http.field.AcceptField('application/csv');
 method = matlab.net.http.RequestMethod.POST;
-auth = matlab.net.http.field.GenericField('Authorization','Token <token>'); %replace "<token>" with actual token
+auth = matlab.net.http.field.GenericField('Authorization','Token <TOKEN>'); %% replace <TOKEN> with actual token
 header = [auth acceptField contentTypeField]; 
 request = matlab.net.http.RequestMessage(method,header,body);
 
-uri = matlab.net.URI('http://localhost:8086/api/v2/query?org=<orgID>'); 
-%replace "localhost" with actual ip address if needed
-%replace "<orgID>" with actual organization ID
+uri = matlab.net.URI('http://<IP>:8086/api/v2/query?org=<ORG>'); 
+%% replace <IP> with ip address of influxDB database
+%% replace <ORG> with your organization ID
 response = send(request,uri);
 structuredata = response.Body.Data;
 
@@ -82,15 +82,27 @@ structuredata.relative_time_seconds = relativeSeconds;
 timestamps = structuredata.relative_time_seconds;
 sensorvalues = structuredata.x_value;
 
+
+saveddata = structuredata(:,["relative_time_seconds","x_value"]);
+
+save('savefile.mat', 'saveddata');
+
 plot(timestamps, sensorvalues, '-s', 'MarkerSize', 10, ...
     'MarkerEdgeColor', 'red', ...
     'MarkerFaceColor', [1 .6 .6]);
+
+% Enable the grid
 grid on;
+
+% Set labels for the axes
 xlabel('relative time (seconds)');
 ylabel('sensor value (units)');
-ax = gca; 
-ax.YTick = [floor(min(sensorvalues)):10:ceil(max(sensorvalues))];
 
+% Adjust the current axes
+ax = gca;  % Get handle to the current axes
+
+% Set X and Y grid spacing
+ax.YTick = floor(min(sensorvalues)):10:ceil(max(sensorvalues));
 
 end
 
