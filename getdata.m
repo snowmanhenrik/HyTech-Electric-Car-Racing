@@ -4,7 +4,7 @@ function [] = getdata()
 %% ------ previous bucketquery code
 
 base_url = 'http://3.134.2.166:8086';
-token = 'cBzX7hK34AHjfGCElheFna0jT39u5j_Ebi4vRYWDZP1E-LjAffa7hj85pavKbCp71_6nzpCBQxje-YeGRf4UfQ==';
+token = '<PLACE INFLUXDB TOKEN HERE>';
 
 endpoint = '/api/v2/buckets';
 
@@ -17,8 +17,6 @@ options = weboptions('RequestMethod', 'GET', ...
 for i = 1:length(response.buckets)
     disp(['Bucket Name: ' response.buckets{i}.name ' | Bucket ID: ' response.buckets{i}.id]);
 end
-
-%% ------
 
 prompt1 = "Please input the *name* of the bucket you want to query: ";
 bucketname = strtrim(input(prompt1,'s'));
@@ -47,19 +45,15 @@ structuredata = response.Body.Data;
 selectedconditions = {};
 selectedtags= {};
 
-%---
-
 tester = structuredata(:,7); % assuming 'x_value' is the 7th column
-%save('nan.mat','tester');
+
 
 for j = 2:height(tester)
     if isnan(tester{j,1})
-        disp('nan detected')
+        disp(j);
         structuredata(j,:) = [];
     end
 end
-
-save('nan.mat','tester');
 
 
 for i = 1:width(structuredata)
@@ -70,10 +64,7 @@ for i = 1:width(structuredata)
     if iscell(columnData) && iscell(columnData{1})
         columnData = cellfun(@(c) c{1}, columnData, 'UniformOutput', false);
     end
-
-    %disp(class(columnData(1)));
     
-
     disc = 0;
 
     for i = 1:width(columnData)
@@ -103,10 +94,11 @@ for i = 1:width(structuredata)
         structuredata1 = structuredata(strcmp(structuredata.(columnName), userCondition), :);
 
         % If no rows remain after filtering
-        while (isempty(structuredata1))
+        while ((isempty(structuredata1)) && ~isempty(userCondition))
             disp(['No matching data found for the filter: ', columnName, ' = ', userCondition]);
             promptempty = "Please enter a different value to filter by: ";
-            userCondition = input(promptempty,"s");            
+            userCondition = input(promptempty,"s"); 
+
             if iscell(structuredata.(columnName)) 
                 structuredata1 = structuredata(strcmp(structuredata.(columnName), userCondition), :);
             else 
@@ -180,16 +172,10 @@ else
     end
 end
 
-%------
-%------
-%------
-
 function [] = loop()
 query1 = "please enter the time interval between each loop";
 query2 = "please enter the number of loops desired";
 interval = input(query1);
-
-% CONDITIONS FOR INPUTS ------
 
 while (~isa(interval,"double") || interval < 0)
     interval = input(query1);
@@ -200,8 +186,6 @@ numloops = input(query2);
 while (numloops < 0 || (rem(numloops,1) ~=0) || ~isa(numloops,"double"))
         numloops = input(query2);
 end
-
-% ------
 
 body1= matlab.net.http.MessageBody(datasaved);
 contentTypeField1 = matlab.net.http.field.ContentTypeField('application/vnd.flux'); 
@@ -216,6 +200,16 @@ response1 = send(request1,uri1);
 structuredata2 = response1.Body.Data;
 
 counter = 0;
+
+tester1 = structuredata2(:,7); % assuming 'x_value' is the 7th column
+
+
+for c = 2:height(tester1)
+    if isnan(tester1{c,1})
+        disp(c);
+        structuredata2(c,:) = [];
+    end
+end
 
 for i = 1:numloops
     for j = 1:width(selectedconditions)
@@ -245,10 +239,6 @@ for i = 1:numloops
 end
 
 disp(['refreshed ',num2str(counter),' times.'])
-
-%------
-%------
-%------
 
 end
 end
